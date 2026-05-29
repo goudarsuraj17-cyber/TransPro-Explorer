@@ -55,19 +55,15 @@ The platform enables researchers to investigate RNA–protein relationships thro
 
 ### Dashboard Home
 
-![Home](screenshots/dashboard_home.png)
+![Home](dashboard_home.png)
 
-### Dashboard Overview
+### Plots
 
-![Dashboard](screenshots/dashboard_overview.png)
-
-### Quadrant Analysis
-
-![Quadrant](screenshots/quadrant_analysis.png)
+![Quadrant](Plots.png)
 
 ### Correlation Distribution
 
-![Histogram](screenshots/pearson_distribution.png)
+![Histogram](Plots.png)
 
 ---
 
