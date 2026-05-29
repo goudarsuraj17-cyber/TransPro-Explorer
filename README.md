@@ -104,4 +104,4 @@ No installation required.
 
 Suraj Manjunath Goudar
 
-Bioinformatics Research Intern
+Bioinformatics Researcher/Analyst
