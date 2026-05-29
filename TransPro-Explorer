@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TransPro Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --q1: #3fb950;
+    --q2: #f85149;
+    --q3: #58a6ff;
+    --q4: #6e7681;
+    --accent: #f0883e;
+    --yellow: #e3b341;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  header {
+    text-align: center;
+    padding: 20px 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+
+  header h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
+
+  header p {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .upload-section {
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 28px;
+    text-align: center;
+    margin-bottom: 24px;
+    transition: border-color 0.2s;
+  }
+
+  .upload-section:hover { border-color: var(--accent); }
+
+  .upload-section h3 {
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .upload-section p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif;
+    transition: opacity 0.2s;
+  }
+
+  .btn:hover { opacity: 0.85; }
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    margin-left: 10px;
+  }
+
+  #fileInput { display: none; }
+
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+
+  .stat-card .val {
+    font-size: 1.4rem;
+    font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .stat-card .lbl {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .plots-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  .plot-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    position: relative;
+  }
+
+  .plot-card h2 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+
+  .plot-card .subtitle {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  canvas { display: block; }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.78rem;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 1000;
+    min-width: 160px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+
+  #tooltip.visible { opacity: 1; }
+
+  #tooltip .gene-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+    color: var(--accent);
+  }
+
+  #tooltip .t-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 2px;
+  }
+
+  #tooltip .t-label { color: var(--text-muted); }
+  #tooltip .t-val { font-family: 'IBM Plex Mono', monospace; }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Correlation explanation box */
+  .explain-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+  }
+
+  .explain-box h2 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--yellow);
+  }
+
+  .r-scale {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 16px;
+    border-radius: 6px;
+    overflow: hidden;
+    height: 32px;
+  }
+
+  .r-segment {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    color: #000;
+  }
+
+  .r-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    padding: 0 2px;
+  }
+
+  .explain-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .explain-item {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 3px solid;
+  }
+
+  .explain-item .r-range {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .explain-item .r-meaning {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  .histogram-explain {
+    margin-top: 16px;
+    padding: 14px;
+    background: var(--surface2);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+
+  .histogram-explain strong { color: var(--text); }
+
+  .filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .filter-btn {
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif;
+    transition: all 0.2s;
+  }
+
+  .filter-btn.active {
+    background: var(--surface2);
+    color: var(--text);
+    border-color: var(--accent);
+  }
+
+  .search-box {
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 0.8rem;
+    font-family: 'IBM Plex Mono', monospace;
+    width: 160px;
+    outline: none;
+  }
+
+  .search-box:focus { border-color: var(--accent); }
+
+  .no-data {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+
+  .no-data .icon { font-size: 2.5rem; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>TransPro Explorer</h1>
+  <p>RFU vs TPM &nbsp;|&nbsp; Interactive Multi-Omics Correlation Analysis Dashboard &nbsp;|&nbsp; Pearson correlation &nbsp;|&nbsp; Quadrant analysis</p>
+</header>
+
+<div class="upload-section" id="uploadSection">
+  <h3>Load Your .csv file with the following columns</h3>
+  <p>GeneSymbol, mean_log2_TPM, mean_log2_RFU, pearson_r, pvalue, Quadrant</p>
+  <button class="btn" onclick="document.getElementById('fileInput').click()">Upload CSV File</button>
+  <button class="btn btn-secondary" onclick="loadDemo()">Load Demo Data</button>
+  <input type="file" id="fileInput" accept=".csv" onchange="handleFile(event)">
+</div>
+
+<div id="mainContent" style="display:none">
+
+  <div class="stats-bar" id="statsBar"></div>
+
+  <div class="filters">
+    <span style="font-size:0.78rem;color:var(--text-muted);margin-right:4px">Show:</span>
+    <button class="filter-btn active" onclick="setFilter('all', this)">All genes</button>
+    <button class="filter-btn" onclick="setFilter('Q1', this)" style="color:#3fb950;border-color:#3fb950">Q1: High RNA / High Prot</button>
+    <button class="filter-btn" onclick="setFilter('Q2', this)" style="color:#f85149;border-color:#f85149">Q2: Low RNA / High Prot</button>
+    <button class="filter-btn" onclick="setFilter('Q3', this)" style="color:#58a6ff;border-color:#58a6ff">Q3: High RNA / Low Prot</button>
+    <button class="filter-btn" onclick="setFilter('Q4', this)" style="color:#6e7681;border-color:#6e7681">Q4: Low RNA / Low Prot</button>
+    <input class="search-box" type="text" id="geneSearch" placeholder="Search gene..." oninput="searchGene()">
+  </div>
+
+  <div class="plots-grid">
+    <div class="plot-card">
+      <h2>Quadrant Analysis — Transcriptome vs Proteome</h2>
+      <div class="subtitle">Mean log&#8322;(TPM+1) vs Mean log&#8322;(RFU) &nbsp;&bull;&nbsp; Hover over dots to see gene details</div>
+      <canvas id="quadrantCanvas"></canvas>
+      <div class="legend" id="quadrantLegend"></div>
+    </div>
+
+    <div class="plot-card">
+      <h2>Pearson r Distribution</h2>
+      <div class="subtitle">RNA–Protein correlation across 9 samples &nbsp;&bull;&nbsp; Hover bars to see details</div>
+      <canvas id="histCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="explain-box">
+    <h2>&#9432; How to Read the Pearson r Histogram</h2>
+
+    <div class="r-scale">
+      <div class="r-segment" style="background:#c62828;flex:1.5">-1.0</div>
+      <div class="r-segment" style="background:#e53935;flex:0.5">-0.8</div>
+      <div class="r-segment" style="background:#ef9a9a;flex:0.5">-0.5</div>
+      <div class="r-segment" style="background:#e0e0e0;flex:1">0</div>
+      <div class="r-segment" style="background:#a5d6a7;flex:0.5">+0.5</div>
+      <div class="r-segment" style="background:#43a047;flex:0.5">+0.8</div>
+      <div class="r-segment" style="background:#1b5e20;flex:1.5;color:#fff">+1.0</div>
+    </div>
+    <div class="r-labels">
+      <span>Strong negative</span>
+      <span>Weak negative</span>
+      <span style="text-align:center">No correlation</span>
+      <span>Weak positive</span>
+      <span>Strong positive</span>
+    </div>
+
+    <div class="explain-grid">
+      <div class="explain-item" style="border-color:#c62828">
+        <div class="r-range" style="color:#f85149">r = -1.0 to -0.5</div>
+        <div class="r-meaning">Strong negative. RNA goes up → protein goes down. Active post-transcriptional suppression (miRNA, rapid degradation).</div>
+      </div>
+      <div class="explain-item" style="border-color:#555">
+        <div class="r-range" style="color:#8b949e">r = -0.5 to 0</div>
+        <div class="r-meaning">Weak negative. Slight tendency for RNA and protein to move in opposite directions. May be noise or mild regulation.</div>
+      </div>
+      <div class="explain-item" style="border-color:#555">
+        <div class="r-range" style="color:#8b949e">r = 0 to +0.5</div>
+        <div class="r-meaning">Weak positive. Slight tendency to co-vary. Expected biological baseline — many genes show this weak coupling.</div>
+      </div>
+      <div class="explain-item" style="border-color:#1b5e20">
+        <div class="r-range" style="color:#3fb950">r = +0.5 to +1.0</div>
+        <div class="r-meaning">Strong positive. RNA drives protein. Transcription is the dominant regulator — these genes behave as expected from central dogma.</div>
+      </div>
+    </div>
+
+    <div class="histogram-explain">
+      <strong>What does the histogram shape tell you?</strong> Each bar = a group of genes with similar r values. Tall bars in the middle (near 0) = most genes have <em>no consistent RNA-protein relationship</em> across samples. This is <strong>normal and expected</strong> — globally, mRNA is a poor predictor of protein. The <strong>red line</strong> shows the median r. Bars on the right (positive) = genes where RNA predicts protein. Bars on the left (negative) = genes where RNA and protein are inversely coupled.
+    </div>
+  </div>
+
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+let allData = [];
+let filteredData = [];
+let currentFilter = 'all';
+let highlightGene = null;
+let rnaMedian = 0, protMedian = 0;
+let quadrantCanvas, histCanvas, qCtx, hCtx;
+let qW, qH, hW, hH;
+const PAD = { top: 20, right: 20, bottom: 50, left: 55 };
+
+const COLORS = {
+  'Q1: High RNA / High Protein': '#3fb950',
+  'Q2: Low RNA / High Protein':  '#f85149',
+  'Q3: High RNA / Low Protein':  '#58a6ff',
+  'Q4: Low RNA / Low Protein':   '#6e7681'
+};
+
+function qKey(q) {
+  for (const k of Object.keys(COLORS)) {
+    if (k.startsWith(q)) return k;
+  }
+  return null;
+}
+
+// ── Demo data ────────────────────────────────────────────────
+function loadDemo() {
+  const genes = ['AASDH','AAGAB','A2M','TP53','BRCA1','MYC','EGFR','KRAS','PTEN','RB1',
+    'CDK2','CDK4','CCND1','BCL2','MCL1','VEGFA','HIF1A','MTOR','AKT1','PIK3CA',
+    'MAPK1','ERK2','JUN','FOS','NFkB','STAT3','STAT1','IRF1','IRF3','IFNG',
+    'TNF','IL6','IL1B','CXCL8','CCL2','MMP9','MMP2','TIMP1','CDKN1A','CDKN2A',
+    'MDM2','HDAC1','HDAC2','EZH2','DNMT1','PCNA','TOP2A','AURKA','PLK1','BUB1',
+    'STMN1','TUBB','ACTIN','VIM','FN1','CDH1','CDH2','SNAI1','TWIST1','ZEB1',
+    'ALDH1A1','CD44','CD133','SOX2','OCT4','NANOG','KLF4','MYC2','BMI1','LGR5',
+    'ABCB1','ABCC1','ABCG2','GST1','CYP3A4','CYP1A2','UGT1A','SULT1','NQO1','KEAP1',
+    'NFE2L2','HMOX1','GCLC','GCLM','TXN','PRDX1','SOD1','SOD2','CAT','GPX1',
+    'ATM','ATR','CHEK1','CHEK2','RAD51','BRCA2','FANCD2','XRCC1','PARP1','LIG1',
+    'TERT','TERC','POT1','TRF1','TRF2','RAP1','RTEL1','NBN','MRE11','RAD50'];
+
+  const rows = genes.map((g, i) => {
+    const q = i % 4;
+    const rna  = q < 2 ? 2.3 + Math.random()*10 : Math.random()*2.2;
+    const prot = (q === 0 || q === 1) ? 10.13 + Math.random()*7 : 1 + Math.random()*8.5;
+    const r    = (q === 0) ? 0.3+Math.random()*0.69 :
+                 (q === 1) ? -0.99+Math.random()*0.7 :
+                 (q === 2) ? -0.99+Math.random()*0.6 : -0.3+Math.random()*0.6;
+    const quadrants = ['Q1: High RNA / High Protein','Q2: Low RNA / High Protein',
+                       'Q3: High RNA / Low Protein','Q4: Low RNA / Low Protein'];
+    return {
+      GeneSymbol: g,
+      mean_log2_TPM: rna,
+      mean_log2_RFU: prot,
+      pearson_r: r,
+      pvalue: Math.random()*0.1,
+      Quadrant: quadrants[q]
+    };
+  });
+  processData(rows);
+}
+
+// ── File handling ────────────────────────────────────────────
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  Papa.parse(file, {
+    header: true,
+    dynamicTyping: true,
+    complete: r => processData(r.data.filter(d => d.GeneSymbol))
+  });
+}
+
+function processData(rows) {
+  allData = rows;
+  filteredData = rows;
+
+  const rnas = rows.map(d => d.mean_log2_TPM).filter(v => !isNaN(v));
+  const prots = rows.map(d => d.mean_log2_RFU).filter(v => !isNaN(v));
+  rnaMedian  = median(rnas);
+  protMedian = median(prots);
+
+  document.getElementById('uploadSection').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+
+  updateStats();
+  initCanvases();
+  drawAll();
+}
+
+function median(arr) {
+  const s = [...arr].sort((a,b)=>a-b);
+  const m = Math.floor(s.length/2);
+  return s.length % 2 ? s[m] : (s[m-1]+s[m])/2;
+}
+
+// ── Stats bar ────────────────────────────────────────────────
+function updateStats() {
+  const data = filteredData;
+  const rs = data.map(d=>d.pearson_r).filter(v=>!isNaN(v));
+  const med = median(rs).toFixed(3);
+  const pos = rs.filter(r=>r>0.5).length;
+  const neg = rs.filter(r=>r<-0.5).length;
+
+  const counts = {};
+  for (const k of Object.keys(COLORS)) counts[k] = 0;
+  data.forEach(d => { if (counts[d.Quadrant]!==undefined) counts[d.Quadrant]++; });
+
+  const qLabels = ['Q1','Q2','Q3','Q4'];
+  const qColors = ['#3fb950','#f85149','#58a6ff','#6e7681'];
+
+  let html = `
+    <div class="stat-card"><div class="val" style="color:var(--accent)">${data.length.toLocaleString()}</div><div class="lbl">Total Genes</div></div>
+    <div class="stat-card"><div class="val" style="color:var(--yellow)">${med}</div><div class="lbl">Median r</div></div>
+    <div class="stat-card"><div class="val" style="color:#3fb950">${pos}</div><div class="lbl">r &gt; 0.5</div></div>
+    <div class="stat-card"><div class="val" style="color:#f85149">${neg}</div><div class="lbl">r &lt; -0.5</div></div>
+    <div class="stat-card"><div class="val" style="font-size:0.85rem;display:flex;gap:6px;justify-content:center;align-items:center">
+  `;
+  Object.keys(COLORS).forEach((k, i) => {
+    html += `<span style="color:${qColors[i]}">${qLabels[i]}: ${counts[k]}</span>`;
+    if (i < 3) html += '<span style="color:var(--border)">|</span>';
+  });
+  html += `</div><div class="lbl">Quadrant Counts</div></div>`;
+  document.getElementById('statsBar').innerHTML = html;
+}
+
+// ── Canvas setup ─────────────────────────────────────────────
+function initCanvases() {
+  quadrantCanvas = document.getElementById('quadrantCanvas');
+  histCanvas     = document.getElementById('histCanvas');
+
+  const qCard = quadrantCanvas.parentElement;
+  qW = qCard.clientWidth - 40;
+  qH = Math.min(420, qW * 0.7);
+  quadrantCanvas.width  = qW;
+  quadrantCanvas.height = qH;
+  qCtx = quadrantCanvas.getContext('2d');
+
+  const hCard = histCanvas.parentElement;
+  hW = hCard.clientWidth - 40;
+  hH = qH;
+  histCanvas.width  = hW;
+  histCanvas.height = hH;
+  hCtx = histCanvas.getContext('2d');
+
+  quadrantCanvas.addEventListener('mousemove', onQuadrantHover);
+  quadrantCanvas.addEventListener('mouseleave', () => {
+    document.getElementById('tooltip').classList.remove('visible');
+  });
+
+  histCanvas.addEventListener('mousemove', onHistHover);
+  histCanvas.addEventListener('mouseleave', () => {
+    document.getElementById('tooltip').classList.remove('visible');
+    drawHistogram();
+  });
+}
+
+// ── Drawing ──────────────────────────────────────────────────
+function drawAll() {
+  drawQuadrant();
+  drawHistogram();
+  buildLegend();
+}
+
+function getScale(data, key, size, pad) {
+  const vals = data.map(d=>d[key]).filter(v=>!isNaN(v));
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  const range = mx - mn || 1;
+  return v => pad.left + (v - mn) / range * (size - pad.left - pad.right);
+}
+
+function getYScale(data, key, size, pad) {
+  const vals = data.map(d=>d[key]).filter(v=>!isNaN(v));
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  const range = mx - mn || 1;
+  return v => size - pad.bottom - (v - mn) / range * (size - pad.top - pad.bottom);
+}
+
+function drawQuadrant() {
+  const ctx = qCtx;
+  const W = qW, H = qH;
+  ctx.clearRect(0, 0, W, H);
+
+  const data = filteredData.filter(d => !isNaN(d.mean_log2_TPM) && !isNaN(d.mean_log2_RFU));
+
+  const xScale = getScale(data, 'mean_log2_TPM', W, PAD);
+  const yScale = getYScale(data, 'mean_log2_RFU', H, PAD);
+
+  // Grid
+  ctx.strokeStyle = '#21262d';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const x = PAD.left + i * (W - PAD.left - PAD.right) / 4;
+    ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, H - PAD.bottom); ctx.stroke();
+    const y = PAD.top + i * (H - PAD.top - PAD.bottom) / 4;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(W - PAD.right, y); ctx.stroke();
+  }
+
+  // Median lines
+  const mx = xScale(rnaMedian), my = yScale(protMedian);
+  ctx.strokeStyle = '#8b949e';
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(mx, PAD.top); ctx.lineTo(mx, H - PAD.bottom); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD.left, my); ctx.lineTo(W - PAD.right, my); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Quadrant labels
+  ctx.font = '600 11px IBM Plex Mono, monospace';
+  ctx.fillStyle = '#30363d';
+  ctx.fillText('Q1', mx + 6, PAD.top + 14);
+  ctx.fillText('Q2', PAD.left + 4, PAD.top + 14);
+  ctx.fillText('Q3', mx + 6, H - PAD.bottom - 6);
+  ctx.fillText('Q4', PAD.left + 4, H - PAD.bottom - 6);
+
+  // Dots
+  data.forEach(d => {
+    const x = xScale(d.mean_log2_TPM);
+    const y = yScale(d.mean_log2_RFU);
+    const color = COLORS[d.Quadrant] || '#6e7681';
+    const isHighlighted = highlightGene && d.GeneSymbol === highlightGene;
+    const r = isHighlighted ? 7 : 4;
+    const alpha = highlightGene ? (isHighlighted ? 1 : 0.12) : 0.65;
+
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    if (isHighlighted) {
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = '600 11px IBM Plex Sans';
+      ctx.fillText(d.GeneSymbol, x + 9, y - 5);
+    }
+  });
+
+  ctx.globalAlpha = 1;
+
+  // Axes
+  ctx.strokeStyle = '#30363d';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, H - PAD.bottom); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD.left, H - PAD.bottom); ctx.lineTo(W - PAD.right, H - PAD.bottom); ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '11px IBM Plex Sans';
+  ctx.textAlign = 'center';
+  ctx.fillText('Mean log\u2082(TPM + 1)', W / 2, H - 8);
+
+  ctx.save();
+  ctx.translate(14, H / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Mean log\u2082(RFU)', 0, 0);
+  ctx.restore();
+
+  // Tick values
+  ctx.font = '9px IBM Plex Mono';
+  ctx.fillStyle = '#6e7681';
+  ctx.textAlign = 'center';
+  const xVals = data.map(d=>d.mean_log2_TPM).filter(v=>!isNaN(v));
+  const xMin = Math.min(...xVals), xMax = Math.max(...xVals);
+  for (let i = 0; i <= 4; i++) {
+    const v = xMin + i * (xMax - xMin) / 4;
+    ctx.fillText(v.toFixed(1), xScale(v), H - PAD.bottom + 14);
+  }
+  ctx.textAlign = 'right';
+  const yVals = data.map(d=>d.mean_log2_RFU).filter(v=>!isNaN(v));
+  const yMin = Math.min(...yVals), yMax = Math.max(...yVals);
+  for (let i = 0; i <= 4; i++) {
+    const v = yMin + i * (yMax - yMin) / 4;
+    ctx.fillText(v.toFixed(1), PAD.left - 5, yScale(v) + 3);
+  }
+}
+
+function drawHistogram(hoveredBin = null) {
+  const ctx = hCtx;
+  const W = hW, H = hH;
+  ctx.clearRect(0, 0, W, H);
+
+  const rs = allData.map(d=>d.pearson_r).filter(v=>!isNaN(v));
+  if (!rs.length) return;
+
+  const bins = 30;
+  const min = -1, max = 1;
+  const binW = (max - min) / bins;
+  const counts = new Array(bins).fill(0);
+  rs.forEach(r => {
+    const i = Math.min(Math.floor((r - min) / binW), bins - 1);
+    counts[i]++;
+  });
+
+  const maxCount = Math.max(...counts);
+  const xScale = v => PAD.left + (v - min) / (max - min) * (W - PAD.left - PAD.right);
+  const yScale = v => H - PAD.bottom - (v / maxCount) * (H - PAD.top - PAD.bottom);
+
+  // Grid lines
+  ctx.strokeStyle = '#21262d';
+  ctx.lineWidth = 1;
+  for (let i = 1; i <= 4; i++) {
+    const y = yScale(maxCount * i / 4);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(W - PAD.right, y); ctx.stroke();
+    ctx.fillStyle = '#6e7681';
+    ctx.font = '9px IBM Plex Mono';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(maxCount * i / 4), PAD.left - 5, y + 3);
+  }
+
+  // Bars
+  counts.forEach((count, i) => {
+    const x1 = xScale(min + i * binW);
+    const x2 = xScale(min + (i + 1) * binW);
+    const bw = x2 - x1 - 1;
+    const by = yScale(count);
+    const bh = H - PAD.bottom - by;
+    const binCenter = min + (i + 0.5) * binW;
+
+    let color = binCenter < -0.5 ? '#c62828' :
+                binCenter < 0    ? '#ef9a9a' :
+                binCenter < 0.5  ? '#a5d6a7' : '#2e7d32';
+
+    if (hoveredBin === i) {
+      ctx.fillStyle = '#f0883e';
+    } else {
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.8;
+    }
+
+    ctx.fillRect(x1, by, bw, bh);
+    ctx.globalAlpha = 1;
+  });
+
+  // Zero line
+  ctx.strokeStyle = '#8b949e';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+  const zx = xScale(0);
+  ctx.beginPath(); ctx.moveTo(zx, PAD.top); ctx.lineTo(zx, H - PAD.bottom); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Median line
+  const med = median(rs);
+  const medx = xScale(med);
+  ctx.strokeStyle = '#f85149';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(medx, PAD.top); ctx.lineTo(medx, H - PAD.bottom); ctx.stroke();
+
+  ctx.fillStyle = '#f85149';
+  ctx.font = '600 9px IBM Plex Mono';
+  ctx.textAlign = 'center';
+  ctx.fillText(`median r=${med.toFixed(3)}`, medx, PAD.top - 4);
+
+  // Axes
+  ctx.strokeStyle = '#30363d';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, H - PAD.bottom); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD.left, H - PAD.bottom); ctx.lineTo(W - PAD.right, H - PAD.bottom); ctx.stroke();
+
+  // X ticks
+  ctx.fillStyle = '#6e7681';
+  ctx.font = '9px IBM Plex Mono';
+  ctx.textAlign = 'center';
+  [-1, -0.5, 0, 0.5, 1].forEach(v => {
+    ctx.fillText(v.toFixed(1), xScale(v), H - PAD.bottom + 14);
+  });
+
+  // Labels
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '11px IBM Plex Sans';
+  ctx.textAlign = 'center';
+  ctx.fillText('Pearson r (RNA vs Protein)', W / 2, H - 8);
+
+  ctx.save();
+  ctx.translate(14, H / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Number of genes', 0, 0);
+  ctx.restore();
+}
+
+// ── Hover handlers ───────────────────────────────────────────
+function onQuadrantHover(e) {
+  const rect = quadrantCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  const data = filteredData.filter(d => !isNaN(d.mean_log2_TPM) && !isNaN(d.mean_log2_RFU));
+  const xScale = getScale(data, 'mean_log2_TPM', qW, PAD);
+  const yScale = getYScale(data, 'mean_log2_RFU', qH, PAD);
+
+  let closest = null, minDist = 12;
+  data.forEach(d => {
+    const dx = xScale(d.mean_log2_TPM) - mx;
+    const dy = yScale(d.mean_log2_RFU) - my;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < minDist) { minDist = dist; closest = d; }
+  });
+
+  const tip = document.getElementById('tooltip');
+  if (closest) {
+    highlightGene = closest.GeneSymbol;
+    drawQuadrant();
+
+    const qShort = closest.Quadrant ? closest.Quadrant.split(':')[0] : '—';
+    const color = COLORS[closest.Quadrant] || '#fff';
+    tip.innerHTML = `
+      <div class="gene-name" style="color:${color}">${closest.GeneSymbol}</div>
+      <div class="t-row"><span class="t-label">Quadrant</span><span class="t-val" style="color:${color}">${qShort}</span></div>
+      <div class="t-row"><span class="t-label">log&#8322;(TPM)</span><span class="t-val">${(closest.mean_log2_TPM||0).toFixed(3)}</span></div>
+      <div class="t-row"><span class="t-label">log&#8322;(RFU)</span><span class="t-val">${(closest.mean_log2_RFU||0).toFixed(3)}</span></div>
+      <div class="t-row"><span class="t-label">Pearson r</span><span class="t-val">${(closest.pearson_r||0).toFixed(3)}</span></div>
+      <div class="t-row"><span class="t-label">p-value</span><span class="t-val">${(closest.pvalue||0).toExponential(2)}</span></div>
+    `;
+    tip.style.left = (e.clientX + 14) + 'px';
+    tip.style.top  = (e.clientY - 10) + 'px';
+    tip.classList.add('visible');
+  } else {
+    highlightGene = null;
+    drawQuadrant();
+    tip.classList.remove('visible');
+  }
+}
+
+function onHistHover(e) {
+  const rect = histCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const rs = allData.map(d=>d.pearson_r).filter(v=>!isNaN(v));
+  const bins = 30;
+  const binW = 2 / bins;
+  const xScale = v => PAD.left + (v + 1) / 2 * (hW - PAD.left - PAD.right);
+
+  let hovBin = null;
+  for (let i = 0; i < bins; i++) {
+    const x1 = xScale(-1 + i * binW);
+    const x2 = xScale(-1 + (i+1) * binW);
+    if (mx >= x1 && mx <= x2) { hovBin = i; break; }
+  }
+
+  drawHistogram(hovBin);
+
+  const tip = document.getElementById('tooltip');
+  if (hovBin !== null) {
+    const lo = (-1 + hovBin * binW).toFixed(2);
+    const hi = (-1 + (hovBin+1) * binW).toFixed(2);
+    const cnt = rs.filter(r => r >= parseFloat(lo) && r < parseFloat(hi)).length;
+    const pct = (cnt / rs.length * 100).toFixed(1);
+    tip.innerHTML = `
+      <div class="gene-name" style="color:var(--accent)">r range: ${lo} to ${hi}</div>
+      <div class="t-row"><span class="t-label">Gene count</span><span class="t-val">${cnt}</span></div>
+      <div class="t-row"><span class="t-label">Percentage</span><span class="t-val">${pct}%</span></div>
+      <div class="t-row"><span class="t-label">Interpretation</span><span class="t-val" style="color:${
+        parseFloat(lo) < -0.5 ? '#f85149' : parseFloat(lo) >= 0.5 ? '#3fb950' : '#8b949e'
+      }">${parseFloat(lo) < -0.5 ? 'Strong negative' : parseFloat(lo) >= 0.5 ? 'Strong positive' : 'Weak/no corr.'}</span></div>
+    `;
+    tip.style.left = (e.clientX + 14) + 'px';
+    tip.style.top  = (e.clientY - 10) + 'px';
+    tip.classList.add('visible');
+  } else {
+    tip.classList.remove('visible');
+  }
+}
+
+// ── Filter & Search ──────────────────────────────────────────
+function setFilter(q, btn) {
+  currentFilter = q;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filteredData = q === 'all' ? allData : allData.filter(d => d.Quadrant && d.Quadrant.startsWith(q));
+  highlightGene = null;
+  updateStats();
+  drawAll();
+}
+
+function searchGene() {
+  const val = document.getElementById('geneSearch').value.trim().toUpperCase();
+  if (!val) { highlightGene = null; drawQuadrant(); return; }
+  const found = filteredData.find(d => d.GeneSymbol && d.GeneSymbol.toUpperCase() === val);
+  highlightGene = found ? found.GeneSymbol : null;
+  drawQuadrant();
+}
+
+function buildLegend() {
+  const leg = document.getElementById('quadrantLegend');
+  leg.innerHTML = Object.entries(COLORS).map(([k,c]) => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${c}"></div>
+      <span>${k}</span>
+    </div>`).join('');
+}
+
+window.addEventListener('resize', () => {
+  if (allData.length) { initCanvases(); drawAll(); }
+});
+</script>
+<footer style="
+  text-align:center;
+  padding:25px;
+  margin-top:30px;
+  border-top:1px solid #30363d;
+  color:#8b949e;
+  font-size:0.85rem;
+">
+  <div>Developed by <strong>Suraj Manjunath Goudar</strong></div>
+  <div style="margin-top:6px;">
+    Bioinformatics researcher | Multi-Omics Analysis 
+  </div>
+</footer>
+</body>
+</html>
