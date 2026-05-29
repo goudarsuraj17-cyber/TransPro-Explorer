@@ -55,7 +55,7 @@ The platform enables researchers to investigate RNA–protein relationships thro
 
 ### Dashboard Home
 
-![Home](dashboard_home.png)
+![Home](Dashboard_home.png)
 
 ### Plots
 
